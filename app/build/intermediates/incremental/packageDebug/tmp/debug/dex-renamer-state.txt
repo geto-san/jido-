@@ -1,4 +1,4 @@
-#Thu Jul 23 15:29:57 EAT 2026
+#Thu Jul 23 21:19:51 EAT 2026
 base.0=/home/geto/Desktop/jido-/app/build/intermediates/dex/debug/mergeExtDexDebug/classes.dex
 base.1=/home/geto/Desktop/jido-/app/build/intermediates/dex/debug/mergeProjectDexDebug/0/classes.dex
 base.2=/home/geto/Desktop/jido-/app/build/intermediates/dex/debug/mergeProjectDexDebug/12/classes.dex

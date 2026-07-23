@@ -73,3 +73,15 @@ platforms that prohibit it in their own ToS.
 - Android Studio Koala+ (AGP 8.5+)
 - Kotlin 1.9.24
 - minSdk 26, targetSdk 34
+
+## Future Plans
+
+Description: 
+User can either download and install a version of the app that only
+installs a tiles which can be accessed in the notifications just like torch, bluetooth,
+hotspot tiles, with that being the means as how to activate and have the app running on
+close it from running. Alternatively, the user can download and install the main app
+which can give him the ability to decide to activate the tile or not. The main app will
+have a UI with several options interact with, just like most apps.
+
+The UI description Is as Follows

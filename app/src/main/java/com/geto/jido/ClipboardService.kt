@@ -23,12 +23,8 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
-import okhttp3.RequestBody.Companion.toRequestBody
-import org.json.JSONArray
-import org.json.JSONObject
 import java.util.UUID
 
 /**
@@ -42,6 +38,7 @@ class ClipboardService : Service() {
     private val serviceJob = Job()
     private val serviceScope = CoroutineScope(Dispatchers.Default + serviceJob)
     private val httpClient by lazy { OkHttpClient() }
+    private val mediaResolver by lazy { MediaResolver(httpClient) }
 
     private lateinit var clipboardManager: ClipboardManager
     private var lastHandledClip: String? = null
@@ -128,120 +125,51 @@ class ClipboardService : Service() {
             DownloadItem(id = itemId, platform = platform, sourceLink = link, status = DownloadStatus.FETCHING)
         )
 
-        val directUrl = withContext(Dispatchers.IO) { fetchDirectMediaUrl(link, platform) }
+        var directUrl: String? = null
+        
+        // If the link is already a direct media URL (e.g. from yt-dlp), use it directly.
+        if (link.contains("googlevideo.com") || link.contains("tiktokcdn.com") || 
+            link.contains("cdninstagram.com") || link.endsWith(".mp4") || link.contains(".mp4?")) {
+            directUrl = link
+        }
+
+        var retryCount = 0
+        val maxRetries = 3
+
+        while (directUrl.isNullOrBlank() && retryCount < maxRetries) {
+            if (retryCount > 0) {
+                Log.d(TAG, "Retrying resolution for $link (attempt ${retryCount + 1})")
+                delay(2000) // wait 2s before retry
+            }
+            directUrl = withContext(Dispatchers.IO) { mediaResolver.resolve(link, platform) }
+            retryCount++
+        }
 
         if (directUrl.isNullOrBlank()) {
-            Log.w(TAG, "Could not resolve a direct media URL for $link")
+            Log.w(TAG, "Could not resolve a direct media URL for $link after $maxRetries attempts")
             DownloadRepository.updateItem(itemId) { it.copy(status = DownloadStatus.FAILED) }
             updateNotification("Listening for copied media links…")
             return
         }
 
         withContext(Dispatchers.Main) {
-            val (downloadManagerId, fileName) = enqueueDownload(directUrl, platform)
-            DownloadRepository.updateItem(itemId) {
-                it.copy(
-                    status = DownloadStatus.DOWNLOADING,
-                    fileName = fileName,
-                    downloadManagerId = downloadManagerId,
-                    progressPercent = 0
-                )
+            try {
+                val (downloadManagerId, fileName) = enqueueDownload(directUrl, platform)
+                DownloadRepository.updateItem(itemId) {
+                    it.copy(
+                        status = DownloadStatus.DOWNLOADING,
+                        fileName = fileName,
+                        downloadManagerId = downloadManagerId,
+                        progressPercent = 0
+                    )
+                }
+                trackDownloadProgress(itemId, downloadManagerId)
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to enqueue download for $directUrl", e)
+                DownloadRepository.updateItem(itemId) { it.copy(status = DownloadStatus.FAILED) }
             }
-            trackDownloadProgress(itemId, downloadManagerId)
             updateNotification("Listening for copied media links…")
         }
-    }
-
-    /**
-     * Per-platform RapidAPI wiring. Add an entry here for each platform you
-     * subscribe to a downloader API for — Instagram is configured to match
-     * the endpoint you're using now. The RapidAPI key itself comes from
-     * BuildConfig (sourced from local.properties, which is git-ignored —
-     * see README.md for setup) rather than being hardcoded here.
-     */
-    private data class ApiConfig(val host: String, val buildRequest: (String) -> Request)
-
-    private val apiConfigs: Map<String, ApiConfig> = mapOf(
-        "Instagram" to ApiConfig(
-            host = "instagram120.p.rapidapi.com",
-            buildRequest = { link ->
-                val shortcode = Regex("""(?:p|reels|reel)\/([^\/?#&]+)""").find(link)?.groupValues?.get(1)
-                    ?: throw IllegalArgumentException("Could not extract shortcode from $link")
-
-                val jsonBody = JSONObject().put("shortcode", shortcode).toString()
-                val mediaType = "application/json; charset=utf-8".toMediaType()
-                val body = jsonBody.toRequestBody(mediaType)
-
-                Request.Builder()
-                    .url("https://instagram120.p.rapidapi.com/api/instagram/mediaByShortcode")
-                    .post(body)
-                    .build()
-            }
-        )
-    )
-
-    private fun fetchDirectMediaUrl(sourceLink: String, platform: String): String? {
-        val config = apiConfigs[platform] ?: run {
-            Log.w(TAG, "No RapidAPI endpoint configured for $platform yet")
-            return null
-        }
-
-        if (BuildConfig.RAPIDAPI_KEY.isBlank()) {
-            Log.e(TAG, "RAPIDAPI_KEY is empty — set it in local.properties (see README.md)")
-            return null
-        }
-
-        return try {
-            val request = config.buildRequest(sourceLink).newBuilder()
-                .addHeader("x-rapidapi-key", BuildConfig.RAPIDAPI_KEY)
-                .addHeader("x-rapidapi-host", config.host)
-                .addHeader("Content-Type", "application/json")
-                .build()
-
-            httpClient.newCall(request).execute().use { response ->
-                if (!response.isSuccessful) {
-                    Log.w(TAG, "API returned HTTP ${response.code}")
-                    return null
-                }
-                val body = response.body?.string().orEmpty()
-                parseDirectUrl(body)
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "fetchDirectMediaUrl failed", e)
-            null
-        }
-    }
-
-    /**
-     * RapidAPI listings vary in their JSON field names. This tries the
-     * common ones; log the raw body (via Logcat, filter "ClipboardService")
-     * on your first real request and adjust the key names here to match
-     * what instagram120 actually returns.
-     */
-    private fun parseDirectUrl(responseBody: String): String? = try {
-        if (responseBody.trim().startsWith("[")) {
-            val jsonArray = JSONArray(responseBody)
-            jsonArray.optJSONObject(0)
-                ?.optJSONArray("urls")
-                ?.optJSONObject(0)
-                ?.optString("url")
-                ?.ifBlank { null }
-        } else {
-            val json = JSONObject(responseBody)
-            json.optString("url").ifBlank { null }
-                ?: json.optString("download_url").ifBlank { null }
-                ?: json.optString("link").ifBlank { null }
-                ?: json.optJSONArray("medias")?.optJSONObject(0)?.optString("url")?.ifBlank { null }
-                ?: json.optJSONArray("items")?.optJSONObject(0)?.optString("url")?.ifBlank { null }
-                ?: json.optJSONObject("result")?.optString("url")?.ifBlank { null }
-                ?: run {
-                    Log.w(TAG, "Unrecognized response shape, update parseDirectUrl(): $responseBody")
-                    null
-                }
-        }
-    } catch (e: Exception) {
-        Log.e(TAG, "Failed to parse API response: $responseBody", e)
-        null
     }
 
     /** Returns the DownloadManager request id and the chosen file name. */
@@ -320,14 +248,14 @@ class ClipboardService : Service() {
             "Link listener",
             NotificationManager.IMPORTANCE_LOW // low importance = silent, no heads-up popup
         ).apply {
-            description = "Keeps Jido running so it can catch copied media links"
+            description = "Keeps Jido running so it can catch clipboard change"
         }
         val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         manager.createNotificationChannel(channel)
     }
 
     private fun startForegroundCompat() {
-        val notification = buildNotification("Listening for copied media links…")
+        val notification = buildNotification("")
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
         } else {
@@ -375,12 +303,17 @@ object SupportedLinks {
     private val patterns = mapOf(
         "Pinterest" to Regex("""pinterest\.com|pin\.it""", RegexOption.IGNORE_CASE),
         "Instagram" to Regex("""instagram\.com""", RegexOption.IGNORE_CASE),
-        "TikTok" to Regex("""tiktok\.com|vm\.tiktok\.com""", RegexOption.IGNORE_CASE)
+        "TikTok" to Regex("""tiktok\.com|vm\.tiktok\.com""", RegexOption.IGNORE_CASE),
+        "YouTube" to Regex("""youtube\.com|youtu\.be""", RegexOption.IGNORE_CASE),
+        "Spotify" to Regex("""spotify\.com""", RegexOption.IGNORE_CASE)
     )
 
     /** Returns the matched platform name, or null if the text isn't a supported link. */
     fun detect(text: String): String? {
         if (!text.contains("http")) return null
+        if (text.contains("googlevideo.com")) return "YouTube"
+        if (text.contains("tiktokcdn.com")) return "TikTok"
+        if (text.contains("cdninstagram.com")) return "Instagram"
         return patterns.entries.firstOrNull { (_, regex) -> regex.containsMatchIn(text) }?.key
     }
 }

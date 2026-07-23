@@ -60,6 +60,8 @@
                 <action android:name="android.intent.action.MAIN" />
 
                 <category android:name="android.intent.category.LAUNCHER" />
+
+                <action android:name="com.geto.jido.extra.MANUAL_LINK" />
             </intent-filter>
         </activity>
 
@@ -69,7 +71,7 @@
         <service
             android:name="com.geto.jido.ClipboardService"
             android:enabled="true"
-            android:exported="false"
+            android:exported="true"
             android:foregroundServiceType="specialUse" >
             <property
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"

@@ -57,7 +57,7 @@
 39-->[androidx.core:core:1.13.1] /home/geto/.gradle/caches/9.3.0/transforms/bf89162ae3a323bacc1f2afbf831c8e8/transformed/core-1.13.1/AndroidManifest.xml:26:22-94
 40
 41    <application
-41-->/home/geto/Desktop/jido-/app/src/main/AndroidManifest.xml:28:5-74:19
+41-->/home/geto/Desktop/jido-/app/src/main/AndroidManifest.xml:28:5-75:19
 42        android:allowBackup="true"
 42-->/home/geto/Desktop/jido-/app/src/main/AndroidManifest.xml:29:9-35
 43        android:appComponentFactory="androidx.core.app.CoreComponentFactory"
@@ -80,13 +80,13 @@
 54        <!-- Main UI -->
 55        <!-- ======================================================== -->
 56        <activity
-56-->/home/geto/Desktop/jido-/app/src/main/AndroidManifest.xml:40:9-47:20
+56-->/home/geto/Desktop/jido-/app/src/main/AndroidManifest.xml:40:9-48:20
 57            android:name="com.geto.jido.MainActivity"
 57-->/home/geto/Desktop/jido-/app/src/main/AndroidManifest.xml:41:13-41
 58            android:exported="true" >
 58-->/home/geto/Desktop/jido-/app/src/main/AndroidManifest.xml:42:13-36
 59            <intent-filter>
-59-->/home/geto/Desktop/jido-/app/src/main/AndroidManifest.xml:43:13-46:29
+59-->/home/geto/Desktop/jido-/app/src/main/AndroidManifest.xml:43:13-47:29
 60                <action android:name="android.intent.action.MAIN" />
 60-->/home/geto/Desktop/jido-/app/src/main/AndroidManifest.xml:44:17-69
 60-->/home/geto/Desktop/jido-/app/src/main/AndroidManifest.xml:44:25-66
@@ -94,113 +94,117 @@
 62                <category android:name="android.intent.category.LAUNCHER" />
 62-->/home/geto/Desktop/jido-/app/src/main/AndroidManifest.xml:45:17-77
 62-->/home/geto/Desktop/jido-/app/src/main/AndroidManifest.xml:45:27-74
-63            </intent-filter>
-64        </activity>
-65
-66        <!-- ======================================================== -->
-67        <!-- Background clipboard-listening service -->
+63
+64                <action android:name="com.geto.jido.extra.MANUAL_LINK" />
+64-->/home/geto/Desktop/jido-/app/src/main/AndroidManifest.xml:46:17-74
+64-->/home/geto/Desktop/jido-/app/src/main/AndroidManifest.xml:46:25-71
+65            </intent-filter>
+66        </activity>
+67
 68        <!-- ======================================================== -->
-69        <service
-69-->/home/geto/Desktop/jido-/app/src/main/AndroidManifest.xml:52:9-60:19
-70            android:name="com.geto.jido.ClipboardService"
-70-->/home/geto/Desktop/jido-/app/src/main/AndroidManifest.xml:53:13-45
-71            android:enabled="true"
-71-->/home/geto/Desktop/jido-/app/src/main/AndroidManifest.xml:54:13-35
-72            android:exported="false"
-72-->/home/geto/Desktop/jido-/app/src/main/AndroidManifest.xml:55:13-37
-73            android:foregroundServiceType="specialUse" >
-73-->/home/geto/Desktop/jido-/app/src/main/AndroidManifest.xml:56:13-55
-74            <property
-74-->/home/geto/Desktop/jido-/app/src/main/AndroidManifest.xml:57:13-59:127
-75                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
-75-->/home/geto/Desktop/jido-/app/src/main/AndroidManifest.xml:58:17-76
-76                android:value="Watches the clipboard for supported links and downloads the matching media the user copied." />
-76-->/home/geto/Desktop/jido-/app/src/main/AndroidManifest.xml:59:17-124
-77        </service>
-78
-79        <!-- ======================================================== -->
-80        <!-- Download-complete receiver (registered statically so it -->
-81        <!-- fires even if the service process was trimmed) -->
-82        <!-- ======================================================== -->
-83        <receiver
-83-->/home/geto/Desktop/jido-/app/src/main/AndroidManifest.xml:66:9-72:20
-84            android:name="com.geto.jido.DownloadCompleteReceiver"
-84-->/home/geto/Desktop/jido-/app/src/main/AndroidManifest.xml:67:13-53
-85            android:exported="false" >
-85-->/home/geto/Desktop/jido-/app/src/main/AndroidManifest.xml:68:13-37
-86            <intent-filter>
-86-->/home/geto/Desktop/jido-/app/src/main/AndroidManifest.xml:69:13-71:29
-87                <action android:name="android.intent.action.DOWNLOAD_COMPLETE" />
-87-->/home/geto/Desktop/jido-/app/src/main/AndroidManifest.xml:70:17-82
-87-->/home/geto/Desktop/jido-/app/src/main/AndroidManifest.xml:70:25-79
-88            </intent-filter>
-89        </receiver>
-90
-91        <provider
-91-->[androidx.emoji2:emoji2:1.3.0] /home/geto/.gradle/caches/9.3.0/transforms/ce8979f83f245ab6adf93ff3a26bcc44/transformed/emoji2-1.3.0/AndroidManifest.xml:24:9-32:20
-92            android:name="androidx.startup.InitializationProvider"
-92-->[androidx.emoji2:emoji2:1.3.0] /home/geto/.gradle/caches/9.3.0/transforms/ce8979f83f245ab6adf93ff3a26bcc44/transformed/emoji2-1.3.0/AndroidManifest.xml:25:13-67
-93            android:authorities="com.geto.jido.androidx-startup"
-93-->[androidx.emoji2:emoji2:1.3.0] /home/geto/.gradle/caches/9.3.0/transforms/ce8979f83f245ab6adf93ff3a26bcc44/transformed/emoji2-1.3.0/AndroidManifest.xml:26:13-68
-94            android:exported="false" >
-94-->[androidx.emoji2:emoji2:1.3.0] /home/geto/.gradle/caches/9.3.0/transforms/ce8979f83f245ab6adf93ff3a26bcc44/transformed/emoji2-1.3.0/AndroidManifest.xml:27:13-37
-95            <meta-data
-95-->[androidx.emoji2:emoji2:1.3.0] /home/geto/.gradle/caches/9.3.0/transforms/ce8979f83f245ab6adf93ff3a26bcc44/transformed/emoji2-1.3.0/AndroidManifest.xml:29:13-31:52
-96                android:name="androidx.emoji2.text.EmojiCompatInitializer"
-96-->[androidx.emoji2:emoji2:1.3.0] /home/geto/.gradle/caches/9.3.0/transforms/ce8979f83f245ab6adf93ff3a26bcc44/transformed/emoji2-1.3.0/AndroidManifest.xml:30:17-75
-97                android:value="androidx.startup" />
-97-->[androidx.emoji2:emoji2:1.3.0] /home/geto/.gradle/caches/9.3.0/transforms/ce8979f83f245ab6adf93ff3a26bcc44/transformed/emoji2-1.3.0/AndroidManifest.xml:31:17-49
-98            <meta-data
-98-->[androidx.lifecycle:lifecycle-process:2.8.1] /home/geto/.gradle/caches/9.3.0/transforms/64d50dd08d8a973c65f21dadad0bf0dc/transformed/lifecycle-process-2.8.1/AndroidManifest.xml:29:13-31:52
-99                android:name="androidx.lifecycle.ProcessLifecycleInitializer"
-99-->[androidx.lifecycle:lifecycle-process:2.8.1] /home/geto/.gradle/caches/9.3.0/transforms/64d50dd08d8a973c65f21dadad0bf0dc/transformed/lifecycle-process-2.8.1/AndroidManifest.xml:30:17-78
-100                android:value="androidx.startup" />
-100-->[androidx.lifecycle:lifecycle-process:2.8.1] /home/geto/.gradle/caches/9.3.0/transforms/64d50dd08d8a973c65f21dadad0bf0dc/transformed/lifecycle-process-2.8.1/AndroidManifest.xml:31:17-49
-101            <meta-data
-101-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/geto/.gradle/caches/9.3.0/transforms/52a3dfb2d9b829c4bcfa22c5b10065f7/transformed/profileinstaller-1.3.1/AndroidManifest.xml:29:13-31:52
-102                android:name="androidx.profileinstaller.ProfileInstallerInitializer"
-102-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/geto/.gradle/caches/9.3.0/transforms/52a3dfb2d9b829c4bcfa22c5b10065f7/transformed/profileinstaller-1.3.1/AndroidManifest.xml:30:17-85
-103                android:value="androidx.startup" />
-103-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/geto/.gradle/caches/9.3.0/transforms/52a3dfb2d9b829c4bcfa22c5b10065f7/transformed/profileinstaller-1.3.1/AndroidManifest.xml:31:17-49
-104        </provider>
-105
-106        <receiver
-106-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/geto/.gradle/caches/9.3.0/transforms/52a3dfb2d9b829c4bcfa22c5b10065f7/transformed/profileinstaller-1.3.1/AndroidManifest.xml:34:9-52:20
-107            android:name="androidx.profileinstaller.ProfileInstallReceiver"
-107-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/geto/.gradle/caches/9.3.0/transforms/52a3dfb2d9b829c4bcfa22c5b10065f7/transformed/profileinstaller-1.3.1/AndroidManifest.xml:35:13-76
-108            android:directBootAware="false"
-108-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/geto/.gradle/caches/9.3.0/transforms/52a3dfb2d9b829c4bcfa22c5b10065f7/transformed/profileinstaller-1.3.1/AndroidManifest.xml:36:13-44
-109            android:enabled="true"
-109-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/geto/.gradle/caches/9.3.0/transforms/52a3dfb2d9b829c4bcfa22c5b10065f7/transformed/profileinstaller-1.3.1/AndroidManifest.xml:37:13-35
-110            android:exported="true"
-110-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/geto/.gradle/caches/9.3.0/transforms/52a3dfb2d9b829c4bcfa22c5b10065f7/transformed/profileinstaller-1.3.1/AndroidManifest.xml:38:13-36
-111            android:permission="android.permission.DUMP" >
-111-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/geto/.gradle/caches/9.3.0/transforms/52a3dfb2d9b829c4bcfa22c5b10065f7/transformed/profileinstaller-1.3.1/AndroidManifest.xml:39:13-57
-112            <intent-filter>
-112-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/geto/.gradle/caches/9.3.0/transforms/52a3dfb2d9b829c4bcfa22c5b10065f7/transformed/profileinstaller-1.3.1/AndroidManifest.xml:40:13-42:29
-113                <action android:name="androidx.profileinstaller.action.INSTALL_PROFILE" />
-113-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/geto/.gradle/caches/9.3.0/transforms/52a3dfb2d9b829c4bcfa22c5b10065f7/transformed/profileinstaller-1.3.1/AndroidManifest.xml:41:17-91
-113-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/geto/.gradle/caches/9.3.0/transforms/52a3dfb2d9b829c4bcfa22c5b10065f7/transformed/profileinstaller-1.3.1/AndroidManifest.xml:41:25-88
-114            </intent-filter>
-115            <intent-filter>
-115-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/geto/.gradle/caches/9.3.0/transforms/52a3dfb2d9b829c4bcfa22c5b10065f7/transformed/profileinstaller-1.3.1/AndroidManifest.xml:43:13-45:29
-116                <action android:name="androidx.profileinstaller.action.SKIP_FILE" />
-116-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/geto/.gradle/caches/9.3.0/transforms/52a3dfb2d9b829c4bcfa22c5b10065f7/transformed/profileinstaller-1.3.1/AndroidManifest.xml:44:17-85
-116-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/geto/.gradle/caches/9.3.0/transforms/52a3dfb2d9b829c4bcfa22c5b10065f7/transformed/profileinstaller-1.3.1/AndroidManifest.xml:44:25-82
-117            </intent-filter>
-118            <intent-filter>
-118-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/geto/.gradle/caches/9.3.0/transforms/52a3dfb2d9b829c4bcfa22c5b10065f7/transformed/profileinstaller-1.3.1/AndroidManifest.xml:46:13-48:29
-119                <action android:name="androidx.profileinstaller.action.SAVE_PROFILE" />
-119-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/geto/.gradle/caches/9.3.0/transforms/52a3dfb2d9b829c4bcfa22c5b10065f7/transformed/profileinstaller-1.3.1/AndroidManifest.xml:47:17-88
-119-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/geto/.gradle/caches/9.3.0/transforms/52a3dfb2d9b829c4bcfa22c5b10065f7/transformed/profileinstaller-1.3.1/AndroidManifest.xml:47:25-85
-120            </intent-filter>
-121            <intent-filter>
-121-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/geto/.gradle/caches/9.3.0/transforms/52a3dfb2d9b829c4bcfa22c5b10065f7/transformed/profileinstaller-1.3.1/AndroidManifest.xml:49:13-51:29
-122                <action android:name="androidx.profileinstaller.action.BENCHMARK_OPERATION" />
-122-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/geto/.gradle/caches/9.3.0/transforms/52a3dfb2d9b829c4bcfa22c5b10065f7/transformed/profileinstaller-1.3.1/AndroidManifest.xml:50:17-95
-122-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/geto/.gradle/caches/9.3.0/transforms/52a3dfb2d9b829c4bcfa22c5b10065f7/transformed/profileinstaller-1.3.1/AndroidManifest.xml:50:25-92
-123            </intent-filter>
-124        </receiver>
-125    </application>
-126
-127</manifest>
+69        <!-- Background clipboard-listening service -->
+70        <!-- ======================================================== -->
+71        <service
+71-->/home/geto/Desktop/jido-/app/src/main/AndroidManifest.xml:53:9-61:19
+72            android:name="com.geto.jido.ClipboardService"
+72-->/home/geto/Desktop/jido-/app/src/main/AndroidManifest.xml:54:13-45
+73            android:enabled="true"
+73-->/home/geto/Desktop/jido-/app/src/main/AndroidManifest.xml:55:13-35
+74            android:exported="true"
+74-->/home/geto/Desktop/jido-/app/src/main/AndroidManifest.xml:56:13-36
+75            android:foregroundServiceType="specialUse" >
+75-->/home/geto/Desktop/jido-/app/src/main/AndroidManifest.xml:57:13-55
+76            <property
+76-->/home/geto/Desktop/jido-/app/src/main/AndroidManifest.xml:58:13-60:127
+77                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+77-->/home/geto/Desktop/jido-/app/src/main/AndroidManifest.xml:59:17-76
+78                android:value="Watches the clipboard for supported links and downloads the matching media the user copied." />
+78-->/home/geto/Desktop/jido-/app/src/main/AndroidManifest.xml:60:17-124
+79        </service>
+80
+81        <!-- ======================================================== -->
+82        <!-- Download-complete receiver (registered statically so it -->
+83        <!-- fires even if the service process was trimmed) -->
+84        <!-- ======================================================== -->
+85        <receiver
+85-->/home/geto/Desktop/jido-/app/src/main/AndroidManifest.xml:67:9-73:20
+86            android:name="com.geto.jido.DownloadCompleteReceiver"
+86-->/home/geto/Desktop/jido-/app/src/main/AndroidManifest.xml:68:13-53
+87            android:exported="false" >
+87-->/home/geto/Desktop/jido-/app/src/main/AndroidManifest.xml:69:13-37
+88            <intent-filter>
+88-->/home/geto/Desktop/jido-/app/src/main/AndroidManifest.xml:70:13-72:29
+89                <action android:name="android.intent.action.DOWNLOAD_COMPLETE" />
+89-->/home/geto/Desktop/jido-/app/src/main/AndroidManifest.xml:71:17-82
+89-->/home/geto/Desktop/jido-/app/src/main/AndroidManifest.xml:71:25-79
+90            </intent-filter>
+91        </receiver>
+92
+93        <provider
+93-->[androidx.emoji2:emoji2:1.3.0] /home/geto/.gradle/caches/9.3.0/transforms/ce8979f83f245ab6adf93ff3a26bcc44/transformed/emoji2-1.3.0/AndroidManifest.xml:24:9-32:20
+94            android:name="androidx.startup.InitializationProvider"
+94-->[androidx.emoji2:emoji2:1.3.0] /home/geto/.gradle/caches/9.3.0/transforms/ce8979f83f245ab6adf93ff3a26bcc44/transformed/emoji2-1.3.0/AndroidManifest.xml:25:13-67
+95            android:authorities="com.geto.jido.androidx-startup"
+95-->[androidx.emoji2:emoji2:1.3.0] /home/geto/.gradle/caches/9.3.0/transforms/ce8979f83f245ab6adf93ff3a26bcc44/transformed/emoji2-1.3.0/AndroidManifest.xml:26:13-68
+96            android:exported="false" >
+96-->[androidx.emoji2:emoji2:1.3.0] /home/geto/.gradle/caches/9.3.0/transforms/ce8979f83f245ab6adf93ff3a26bcc44/transformed/emoji2-1.3.0/AndroidManifest.xml:27:13-37
+97            <meta-data
+97-->[androidx.emoji2:emoji2:1.3.0] /home/geto/.gradle/caches/9.3.0/transforms/ce8979f83f245ab6adf93ff3a26bcc44/transformed/emoji2-1.3.0/AndroidManifest.xml:29:13-31:52
+98                android:name="androidx.emoji2.text.EmojiCompatInitializer"
+98-->[androidx.emoji2:emoji2:1.3.0] /home/geto/.gradle/caches/9.3.0/transforms/ce8979f83f245ab6adf93ff3a26bcc44/transformed/emoji2-1.3.0/AndroidManifest.xml:30:17-75
+99                android:value="androidx.startup" />
+99-->[androidx.emoji2:emoji2:1.3.0] /home/geto/.gradle/caches/9.3.0/transforms/ce8979f83f245ab6adf93ff3a26bcc44/transformed/emoji2-1.3.0/AndroidManifest.xml:31:17-49
+100            <meta-data
+100-->[androidx.lifecycle:lifecycle-process:2.8.1] /home/geto/.gradle/caches/9.3.0/transforms/64d50dd08d8a973c65f21dadad0bf0dc/transformed/lifecycle-process-2.8.1/AndroidManifest.xml:29:13-31:52
+101                android:name="androidx.lifecycle.ProcessLifecycleInitializer"
+101-->[androidx.lifecycle:lifecycle-process:2.8.1] /home/geto/.gradle/caches/9.3.0/transforms/64d50dd08d8a973c65f21dadad0bf0dc/transformed/lifecycle-process-2.8.1/AndroidManifest.xml:30:17-78
+102                android:value="androidx.startup" />
+102-->[androidx.lifecycle:lifecycle-process:2.8.1] /home/geto/.gradle/caches/9.3.0/transforms/64d50dd08d8a973c65f21dadad0bf0dc/transformed/lifecycle-process-2.8.1/AndroidManifest.xml:31:17-49
+103            <meta-data
+103-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/geto/.gradle/caches/9.3.0/transforms/52a3dfb2d9b829c4bcfa22c5b10065f7/transformed/profileinstaller-1.3.1/AndroidManifest.xml:29:13-31:52
+104                android:name="androidx.profileinstaller.ProfileInstallerInitializer"
+104-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/geto/.gradle/caches/9.3.0/transforms/52a3dfb2d9b829c4bcfa22c5b10065f7/transformed/profileinstaller-1.3.1/AndroidManifest.xml:30:17-85
+105                android:value="androidx.startup" />
+105-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/geto/.gradle/caches/9.3.0/transforms/52a3dfb2d9b829c4bcfa22c5b10065f7/transformed/profileinstaller-1.3.1/AndroidManifest.xml:31:17-49
+106        </provider>
+107
+108        <receiver
+108-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/geto/.gradle/caches/9.3.0/transforms/52a3dfb2d9b829c4bcfa22c5b10065f7/transformed/profileinstaller-1.3.1/AndroidManifest.xml:34:9-52:20
+109            android:name="androidx.profileinstaller.ProfileInstallReceiver"
+109-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/geto/.gradle/caches/9.3.0/transforms/52a3dfb2d9b829c4bcfa22c5b10065f7/transformed/profileinstaller-1.3.1/AndroidManifest.xml:35:13-76
+110            android:directBootAware="false"
+110-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/geto/.gradle/caches/9.3.0/transforms/52a3dfb2d9b829c4bcfa22c5b10065f7/transformed/profileinstaller-1.3.1/AndroidManifest.xml:36:13-44
+111            android:enabled="true"
+111-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/geto/.gradle/caches/9.3.0/transforms/52a3dfb2d9b829c4bcfa22c5b10065f7/transformed/profileinstaller-1.3.1/AndroidManifest.xml:37:13-35
+112            android:exported="true"
+112-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/geto/.gradle/caches/9.3.0/transforms/52a3dfb2d9b829c4bcfa22c5b10065f7/transformed/profileinstaller-1.3.1/AndroidManifest.xml:38:13-36
+113            android:permission="android.permission.DUMP" >
+113-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/geto/.gradle/caches/9.3.0/transforms/52a3dfb2d9b829c4bcfa22c5b10065f7/transformed/profileinstaller-1.3.1/AndroidManifest.xml:39:13-57
+114            <intent-filter>
+114-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/geto/.gradle/caches/9.3.0/transforms/52a3dfb2d9b829c4bcfa22c5b10065f7/transformed/profileinstaller-1.3.1/AndroidManifest.xml:40:13-42:29
+115                <action android:name="androidx.profileinstaller.action.INSTALL_PROFILE" />
+115-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/geto/.gradle/caches/9.3.0/transforms/52a3dfb2d9b829c4bcfa22c5b10065f7/transformed/profileinstaller-1.3.1/AndroidManifest.xml:41:17-91
+115-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/geto/.gradle/caches/9.3.0/transforms/52a3dfb2d9b829c4bcfa22c5b10065f7/transformed/profileinstaller-1.3.1/AndroidManifest.xml:41:25-88
+116            </intent-filter>
+117            <intent-filter>
+117-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/geto/.gradle/caches/9.3.0/transforms/52a3dfb2d9b829c4bcfa22c5b10065f7/transformed/profileinstaller-1.3.1/AndroidManifest.xml:43:13-45:29
+118                <action android:name="androidx.profileinstaller.action.SKIP_FILE" />
+118-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/geto/.gradle/caches/9.3.0/transforms/52a3dfb2d9b829c4bcfa22c5b10065f7/transformed/profileinstaller-1.3.1/AndroidManifest.xml:44:17-85
+118-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/geto/.gradle/caches/9.3.0/transforms/52a3dfb2d9b829c4bcfa22c5b10065f7/transformed/profileinstaller-1.3.1/AndroidManifest.xml:44:25-82
+119            </intent-filter>
+120            <intent-filter>
+120-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/geto/.gradle/caches/9.3.0/transforms/52a3dfb2d9b829c4bcfa22c5b10065f7/transformed/profileinstaller-1.3.1/AndroidManifest.xml:46:13-48:29
+121                <action android:name="androidx.profileinstaller.action.SAVE_PROFILE" />
+121-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/geto/.gradle/caches/9.3.0/transforms/52a3dfb2d9b829c4bcfa22c5b10065f7/transformed/profileinstaller-1.3.1/AndroidManifest.xml:47:17-88
+121-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/geto/.gradle/caches/9.3.0/transforms/52a3dfb2d9b829c4bcfa22c5b10065f7/transformed/profileinstaller-1.3.1/AndroidManifest.xml:47:25-85
+122            </intent-filter>
+123            <intent-filter>
+123-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/geto/.gradle/caches/9.3.0/transforms/52a3dfb2d9b829c4bcfa22c5b10065f7/transformed/profileinstaller-1.3.1/AndroidManifest.xml:49:13-51:29
+124                <action android:name="androidx.profileinstaller.action.BENCHMARK_OPERATION" />
+124-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/geto/.gradle/caches/9.3.0/transforms/52a3dfb2d9b829c4bcfa22c5b10065f7/transformed/profileinstaller-1.3.1/AndroidManifest.xml:50:17-95
+124-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/geto/.gradle/caches/9.3.0/transforms/52a3dfb2d9b829c4bcfa22c5b10065f7/transformed/profileinstaller-1.3.1/AndroidManifest.xml:50:25-92
+125            </intent-filter>
+126        </receiver>
+127    </application>
+128
+129</manifest>
