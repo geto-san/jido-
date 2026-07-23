@@ -7,6 +7,8 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.view.View
+import android.provider.Settings
+import android.text.TextUtils
 import android.view.inputmethod.InputMethodManager
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
@@ -49,6 +51,7 @@ class MainActivity : AppCompatActivity() {
         setupDownloadsList()
         setupManualInput()
         ensureNotificationPermissionThenStart()
+        checkAccessibilityService()
         handleIntent(intent)
     }
 
@@ -64,7 +67,21 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    override fun onResume() {
+        super.onResume()
+        updateAccessibilityPrompt()
+    }
+
+    private fun updateAccessibilityPrompt() {
+        val isEnabled = isAccessibilityServiceEnabled()
+        binding.accessibilityCard.visibility = if (isEnabled) View.GONE else View.VISIBLE
+    }
+
     private fun setupManualInput() {
+        binding.enableAccessibilityButton.setOnClickListener {
+            startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+        }
+
         binding.downloadButton.setOnClickListener {
             val link = binding.linkInput.text.toString().trim()
             if (link.isNotBlank()) {
@@ -77,7 +94,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         binding.pasteButton.setOnClickListener {
-            val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+            val clipboard = getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager
             val text = clipboard.primaryClip?.getItemAt(0)?.text?.toString()
             if (!text.isNullOrBlank()) {
                 binding.linkInput.setText(text)
@@ -94,6 +111,24 @@ class MainActivity : AppCompatActivity() {
         } else {
             startService(serviceIntent)
         }
+    }
+
+    private fun checkAccessibilityService() {
+        updateAccessibilityPrompt()
+    }
+
+    private fun isAccessibilityServiceEnabled(): Boolean {
+        val expectedComponentName = android.content.ComponentName(this, JidoAccessibilityService::class.java).flattenToString()
+        val enabledServices = Settings.Secure.getString(contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES) ?: ""
+        val splitter = TextUtils.SimpleStringSplitter(':')
+        splitter.setString(enabledServices)
+        while (splitter.hasNext()) {
+            val componentName = splitter.next()
+            if (componentName.equals(expectedComponentName, ignoreCase = true)) {
+                return true
+            }
+        }
+        return false
     }
 
     private fun hideKeyboard() {
@@ -145,10 +180,6 @@ class MainActivity : AppCompatActivity() {
 
     private fun startClipboardService() {
         val serviceIntent = Intent(this, ClipboardService::class.java)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            startForegroundService(serviceIntent)
-        } else {
-            startService(serviceIntent)
-        }
+        startForegroundService(serviceIntent)
     }
 }

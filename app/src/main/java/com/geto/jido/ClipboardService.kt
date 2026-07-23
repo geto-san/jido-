@@ -24,7 +24,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
-import okhttp3.Request
 import java.util.UUID
 
 /**
@@ -59,7 +58,7 @@ class ClipboardService : Service() {
         lastHandledClip = clipText
 
         Log.d(TAG, "Detected $platform link on clipboard, starting download pipeline")
-        updateNotification("Found a $platform link — fetching media…")
+        showDownloadAddedNotification(platform)
         serviceScope.launch { handleLink(clipText, platform) }
     }
 
@@ -68,7 +67,13 @@ class ClipboardService : Service() {
         createNotificationChannel()
         startForegroundCompat()
 
-        clipboardManager = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        clipboardManager = getSystemService(CLIPBOARD_SERVICE) as ClipboardManager
+        
+        // Initialize lastHandledClip with current clipboard content to avoid 
+        // downloading what's already there upon service startup.
+        lastHandledClip = clipboardManager.primaryClip?.takeIf { it.itemCount > 0 }
+            ?.getItemAt(0)?.text?.toString()
+
         clipboardManager.addPrimaryClipChangedListener(clipListener)
     }
 
@@ -102,8 +107,8 @@ class ClipboardService : Service() {
         }
 
         lastHandledClip = link // keep the clipboard listener from re-triggering on the same text
-        Log.d(TAG, "Manual link submitted for $platform, starting download pipeline")
-        updateNotification("Found a $platform link — fetching media…")
+        Log.d(TAG, "Link submitted for $platform, starting download pipeline")
+        showDownloadAddedNotification(platform)
         serviceScope.launch { handleLink(link, platform) }
     }
 
@@ -122,7 +127,12 @@ class ClipboardService : Service() {
     private suspend fun handleLink(link: String, platform: String) {
         val itemId = UUID.randomUUID().toString()
         DownloadRepository.addItem(
-            DownloadItem(id = itemId, platform = platform, sourceLink = link, status = DownloadStatus.FETCHING)
+            DownloadItem(
+                id = itemId,
+                platform = platform,
+                sourceLink = link,
+                status = DownloadStatus.FETCHING,
+            )
         )
 
         var directUrl: String? = null
@@ -136,10 +146,10 @@ class ClipboardService : Service() {
         var retryCount = 0
         val maxRetries = 3
 
-        while (directUrl.isNullOrBlank() && retryCount < maxRetries) {
+        while (directUrl.isNullOrBlank() && (retryCount < maxRetries)) {
             if (retryCount > 0) {
                 Log.d(TAG, "Retrying resolution for $link (attempt ${retryCount + 1})")
-                delay(2000) // wait 2s before retry
+                delay(2000L) // wait 2s before retry
             }
             directUrl = withContext(Dispatchers.IO) { mediaResolver.resolve(link, platform) }
             retryCount++
@@ -243,19 +253,31 @@ class ClipboardService : Service() {
 
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
-        val channel = NotificationChannel(
+        val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        
+        val listenerChannel = NotificationChannel(
             CHANNEL_ID,
             "Link listener",
-            NotificationManager.IMPORTANCE_LOW // low importance = silent, no heads-up popup
+            NotificationManager.IMPORTANCE_LOW
         ).apply {
-            description = "Keeps Jido running so it can catch clipboard change"
+            description = "Keeps Jido running so it can catch clipboard changes"
         }
-        val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        manager.createNotificationChannel(channel)
+        manager.createNotificationChannel(listenerChannel)
+
+        val alertChannel = NotificationChannel(
+            ALERT_CHANNEL_ID,
+            "Download Alerts",
+            NotificationManager.IMPORTANCE_HIGH
+        ).apply {
+            description = "Shows pop-ups when a download is added or completed"
+            enableVibration(true)
+            setShowBadge(true)
+        }
+        manager.createNotificationChannel(alertChannel)
     }
 
     private fun startForegroundCompat() {
-        val notification = buildNotification("")
+        val notification = buildNotification("Listening for copied media links…")
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
         } else {
@@ -270,8 +292,7 @@ class ClipboardService : Service() {
 
     private fun buildNotification(contentText: String): Notification {
         val openAppIntent = Intent(this, MainActivity::class.java)
-        val flags = PendingIntent.FLAG_UPDATE_CURRENT or
-            (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0)
+        val flags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         val pendingIntent = PendingIntent.getActivity(this, 0, openAppIntent, flags)
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
@@ -284,9 +305,25 @@ class ClipboardService : Service() {
             .build()
     }
 
+    private fun showDownloadAddedNotification(platform: String) {
+        val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        val notification = NotificationCompat.Builder(this, ALERT_CHANNEL_ID)
+            .setContentTitle("🚀 Jido: Download Added!")
+            .setContentText("Detected a $platform link. Processing…")
+            .setSmallIcon(R.drawable.ic_notification_j)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setDefaults(NotificationCompat.DEFAULT_ALL)
+            .setCategory(NotificationCompat.CATEGORY_PROGRESS)
+            .setVibrate(longArrayOf(0, 250))
+            .setAutoCancel(true)
+            .build()
+        manager.notify(System.currentTimeMillis().toInt(), notification)
+    }
+
     companion object {
         private const val TAG = "ClipboardService"
         private const val CHANNEL_ID = "jido_link_listener"
+        private const val ALERT_CHANNEL_ID = "jido_download_alerts"
         private const val NOTIFICATION_ID = 101
 
         /** Intent extra key used by the "Paste link" UI to submit a link manually. */

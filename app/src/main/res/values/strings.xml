@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">Jido</string>
+    <string name="accessibility_description">Used to detect copied links in other apps for automatic downloads.</string>
 </resources>

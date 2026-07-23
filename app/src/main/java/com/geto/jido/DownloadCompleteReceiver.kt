@@ -46,7 +46,8 @@ class DownloadCompleteReceiver : BroadcastReceiver() {
                     }
 
                     localUriString?.let { uriString ->
-                        Uri.parse(uriString).path?.let { path ->
+                        val uri = Uri.parse(uriString)
+                        uri.path?.let { path ->
                             scanFileForGallery(context, path)
                         }
                     }

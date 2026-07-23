@@ -308,7 +308,7 @@ class MediaResolver(private val httpClient: OkHttpClient) {
                 ?: json.optJSONObject("links")?.optJSONArray("mp3")?.optJSONObject(0)?.optString("url")?.ifBlank { null }
         }
         if (result.isValidUrl()) result else null
-    } catch (e: Exception) {
+    } catch (ignored: Exception) {
         null
     }
 }
