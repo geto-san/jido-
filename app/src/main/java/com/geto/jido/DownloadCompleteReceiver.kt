@@ -48,6 +48,11 @@ class DownloadCompleteReceiver : BroadcastReceiver() {
                     val reason = if (reasonIndex != -1) cursor.getInt(reasonIndex) else -1
                     Toast.makeText(context, "Download failed (code $reason)", Toast.LENGTH_SHORT).show()
                 }
+
+                else -> {
+                    // Other statuses (PENDING, RUNNING, PAUSED) are not expected here
+                    // as this is triggered by ACTION_DOWNLOAD_COMPLETE.
+                }
             }
         }
     }

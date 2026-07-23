@@ -120,9 +120,9 @@ class ClipboardService : Service() {
      * match the exact API you pick.
      */
     private fun fetchDirectMediaUrl(sourceLink: String): String? {
-        val RAPIDAPI_KEY = "PASTE_YOUR_RAPIDAPI_KEY_HERE"
-        val RAPIDAPI_HOST = "PASTE_YOUR_RAPIDAPI_HOST_HERE" // e.g. "pinterest-video-downloader6.p.rapidapi.com"
-        val API_ENDPOINT = "https://$RAPIDAPI_HOST/index.php" // adjust path per the API you subscribe to
+        val RAPIDAPI_KEY = "c95aacbbb1mshd74ec9be8dfe58bp19e47djsncd7c691bb683"
+        val RAPIDAPI_HOST = "https://instagram120.p.rapidapi.com" // e.g. "pinterest-video-downloader6.p.rapidapi.com"
+        val API_ENDPOINT = "https://$RAPIDAPI_HOST/api/instagram/followings" // adjust path per the API you subscribe to
 
         return try {
             val connection = (URL(API_ENDPOINT).openConnection() as HttpURLConnection).apply {
