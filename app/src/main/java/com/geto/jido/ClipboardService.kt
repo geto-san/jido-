@@ -23,10 +23,12 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
+import org.json.JSONArray
 import org.json.JSONObject
-import java.net.URLEncoder
 import java.util.UUID
 
 /**
@@ -157,18 +159,25 @@ class ClipboardService : Service() {
      * BuildConfig (sourced from local.properties, which is git-ignored —
      * see README.md for setup) rather than being hardcoded here.
      */
-    private data class ApiConfig(val host: String, val buildUrl: (String) -> String)
+    private data class ApiConfig(val host: String, val buildRequest: (String) -> Request)
 
     private val apiConfigs: Map<String, ApiConfig> = mapOf(
         "Instagram" to ApiConfig(
             host = "instagram120.p.rapidapi.com",
-            buildUrl = { link ->
-                "https://instagram120.p.rapidapi.com/api/instagram/get?url=" +
-                    URLEncoder.encode(link, "UTF-8")
+            buildRequest = { link ->
+                val shortcode = Regex("""(?:p|reels|reel)\/([^\/?#&]+)""").find(link)?.groupValues?.get(1)
+                    ?: throw IllegalArgumentException("Could not extract shortcode from $link")
+
+                val jsonBody = JSONObject().put("shortcode", shortcode).toString()
+                val mediaType = "application/json; charset=utf-8".toMediaType()
+                val body = jsonBody.toRequestBody(mediaType)
+
+                Request.Builder()
+                    .url("https://instagram120.p.rapidapi.com/api/instagram/mediaByShortcode")
+                    .post(body)
+                    .build()
             }
         )
-        // "Pinterest" to ApiConfig(host = "...", buildUrl = { ... }),
-        // "TikTok" to ApiConfig(host = "...", buildUrl = { ... }),
     )
 
     private fun fetchDirectMediaUrl(sourceLink: String, platform: String): String? {
@@ -183,9 +192,7 @@ class ClipboardService : Service() {
         }
 
         return try {
-            val request = Request.Builder()
-                .url(config.buildUrl(sourceLink))
-                .get()
+            val request = config.buildRequest(sourceLink).newBuilder()
                 .addHeader("x-rapidapi-key", BuildConfig.RAPIDAPI_KEY)
                 .addHeader("x-rapidapi-host", config.host)
                 .addHeader("Content-Type", "application/json")
@@ -212,17 +219,26 @@ class ClipboardService : Service() {
      * what instagram120 actually returns.
      */
     private fun parseDirectUrl(responseBody: String): String? = try {
-        val json = JSONObject(responseBody)
-        json.optString("url").ifBlank { null }
-            ?: json.optString("download_url").ifBlank { null }
-            ?: json.optString("link").ifBlank { null }
-            ?: json.optJSONArray("medias")?.optJSONObject(0)?.optString("url")?.ifBlank { null }
-            ?: json.optJSONArray("items")?.optJSONObject(0)?.optString("url")?.ifBlank { null }
-            ?: json.optJSONObject("result")?.optString("url")?.ifBlank { null }
-            ?: run {
-                Log.w(TAG, "Unrecognized response shape, update parseDirectUrl(): $responseBody")
-                null
-            }
+        if (responseBody.trim().startsWith("[")) {
+            val jsonArray = JSONArray(responseBody)
+            jsonArray.optJSONObject(0)
+                ?.optJSONArray("urls")
+                ?.optJSONObject(0)
+                ?.optString("url")
+                ?.ifBlank { null }
+        } else {
+            val json = JSONObject(responseBody)
+            json.optString("url").ifBlank { null }
+                ?: json.optString("download_url").ifBlank { null }
+                ?: json.optString("link").ifBlank { null }
+                ?: json.optJSONArray("medias")?.optJSONObject(0)?.optString("url")?.ifBlank { null }
+                ?: json.optJSONArray("items")?.optJSONObject(0)?.optString("url")?.ifBlank { null }
+                ?: json.optJSONObject("result")?.optString("url")?.ifBlank { null }
+                ?: run {
+                    Log.w(TAG, "Unrecognized response shape, update parseDirectUrl(): $responseBody")
+                    null
+                }
+        }
     } catch (e: Exception) {
         Log.e(TAG, "Failed to parse API response: $responseBody", e)
         null
