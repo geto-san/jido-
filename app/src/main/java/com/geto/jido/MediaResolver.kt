@@ -18,7 +18,7 @@ class MediaResolver(private val httpClient: OkHttpClient) {
     companion object {
         private const val TAG = "MediaResolver"
         // TODO: Update this after deploying the 'server' directory to Render
-        private const val RENDER_SERVER_URL = "https://your-app-name.onrender.com/resolve?url="
+        private const val RENDER_SERVER_URL = "https://jido-povx.onrender.com/resolve?url="
     }
 
     private data class ApiConfig(
