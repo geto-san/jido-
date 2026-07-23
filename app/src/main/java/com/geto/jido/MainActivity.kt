@@ -1,6 +1,8 @@
 package com.geto.jido
 
 import android.Manifest
+import android.content.ClipboardManager
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
@@ -45,7 +47,67 @@ class MainActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         setupDownloadsList()
+        setupManualLinkRow()
         ensureNotificationPermissionThenStart()
+    }
+
+    /**
+     * "Paste link" row: an explicit alternative path to the automatic
+     * clipboard listener. Useful for testing a link right away, or on
+     * devices/keyboards where OnPrimaryClipChangedListener doesn't fire
+     * reliably. The EditText itself also accepts a normal long-press ▸ Paste
+     * from the keyboard, so the dedicated paste button is just a shortcut.
+     */
+    private fun setupManualLinkRow() {
+        binding.pasteButton.setOnClickListener {
+            val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+            val clipText = clipboard.primaryClip
+                ?.takeIf { it.itemCount > 0 }
+                ?.getItemAt(0)
+                ?.text
+                ?.toString()
+
+            if (clipText.isNullOrBlank()) {
+                Toast.makeText(this, "Clipboard is empty", Toast.LENGTH_SHORT).show()
+            } else {
+                binding.linkInput.setText(clipText)
+                binding.linkInput.setSelection(clipText.length)
+            }
+        }
+
+        binding.downloadButton.setOnClickListener {
+            val link = binding.linkInput.text?.toString()?.trim().orEmpty()
+            submitManualLink(link)
+        }
+    }
+
+    private fun submitManualLink(link: String) {
+        if (link.isBlank()) {
+            Toast.makeText(this, "Paste a link first", Toast.LENGTH_SHORT).show()
+            return
+        }
+        if (SupportedLinks.detect(link) == null) {
+            Toast.makeText(
+                this,
+                "That doesn't look like a Pinterest, Instagram, or TikTok link",
+                Toast.LENGTH_LONG
+            ).show()
+            return
+        }
+
+        // Make sure the foreground service is up (it may not be, if notification
+        // permission was denied) before handing it the link to process.
+        startClipboardService()
+
+        val serviceIntent = ClipboardService.manualLinkIntent(this, link)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            startForegroundService(serviceIntent)
+        } else {
+            startService(serviceIntent)
+        }
+
+        binding.linkInput.setText("")
+        Toast.makeText(this, "Fetching media…", Toast.LENGTH_SHORT).show()
     }
 
     private fun setupDownloadsList() {

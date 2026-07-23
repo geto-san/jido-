@@ -74,8 +74,38 @@ class ClipboardService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        val manualLink = intent?.getStringExtra(EXTRA_MANUAL_LINK)
+        if (!manualLink.isNullOrBlank()) {
+            handleManualLink(manualLink)
+        }
         // Restart automatically if the system kills the process under memory pressure.
         return START_STICKY
+    }
+
+    /**
+     * Entry point for links submitted through the "Paste link" UI in
+     * MainActivity, instead of being picked up by the clipboard listener.
+     * Reuses the exact same fetch/download pipeline as the clipboard path.
+     */
+    private fun handleManualLink(link: String) {
+        val platform = SupportedLinks.detect(link)
+        if (platform == null) {
+            Log.w(TAG, "Manual link isn't a supported platform: $link")
+            DownloadRepository.addItem(
+                DownloadItem(
+                    id = UUID.randomUUID().toString(),
+                    platform = "Unknown",
+                    sourceLink = link,
+                    status = DownloadStatus.FAILED
+                )
+            )
+            return
+        }
+
+        lastHandledClip = link // keep the clipboard listener from re-triggering on the same text
+        Log.d(TAG, "Manual link submitted for $platform, starting download pipeline")
+        updateNotification("Found a $platform link — fetching media…")
+        serviceScope.launch { handleLink(link, platform) }
     }
 
     override fun onDestroy() {
@@ -314,6 +344,13 @@ class ClipboardService : Service() {
         private const val TAG = "ClipboardService"
         private const val CHANNEL_ID = "jido_link_listener"
         private const val NOTIFICATION_ID = 101
+
+        /** Intent extra key used by the "Paste link" UI to submit a link manually. */
+        const val EXTRA_MANUAL_LINK = "com.geto.jido.extra.MANUAL_LINK"
+
+        /** Builds the Intent MainActivity sends to run a manually-entered link through the pipeline. */
+        fun manualLinkIntent(context: android.content.Context, link: String): Intent =
+            Intent(context, ClipboardService::class.java).putExtra(EXTRA_MANUAL_LINK, link)
     }
 }
 

@@ -59,7 +59,14 @@ platforms that prohibit it in their own ToS.
   the file into the media gallery, shows a completion Toast, and syncs the
   final status into `DownloadRepository` as a backstop.
 - `MainActivity` — requests `POST_NOTIFICATIONS` on Android 13+, starts the
-  foreground service, and renders the downloads list.
+  foreground service, and renders the downloads list. Also has a manual
+  "paste a link" row (EditText + paste button + Download button) at the top,
+  which sends the link straight to `ClipboardService` via an Intent extra
+  (`ClipboardService.EXTRA_MANUAL_LINK`) instead of relying on the clipboard
+  listener — handy for testing a link immediately, or as a fallback on
+  devices where `OnPrimaryClipChangedListener` doesn't fire reliably. It runs
+  through the exact same fetch/download pipeline as an auto-detected clipboard
+  link.
 
 ## Minimum requirements
 
