@@ -277,7 +277,7 @@ class ClipboardService : Service() {
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("Jido")
             .setContentText(contentText)
-            .setSmallIcon(android.R.drawable.stat_sys_download)
+            .setSmallIcon(R.drawable.ic_notification_j)
             .setContentIntent(pendingIntent)
             .setOngoing(true)
             .setPriority(NotificationCompat.PRIORITY_LOW)
