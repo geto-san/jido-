@@ -36,6 +36,15 @@ class DownloadCompleteReceiver : BroadcastReceiver() {
 
                     Toast.makeText(context, "Download complete", Toast.LENGTH_SHORT).show()
 
+                    // Backstop in case ClipboardService's own progress poller already
+                    // finished or the process was recreated in between — keeps the
+                    // list UI's status accurate either way.
+                    DownloadRepository.findByDownloadManagerId(downloadId)?.let { item ->
+                        DownloadRepository.updateItem(item.id) {
+                            it.copy(status = DownloadStatus.SUCCESS, progressPercent = 100)
+                        }
+                    }
+
                     localUriString?.let { uriString ->
                         Uri.parse(uriString).path?.let { path ->
                             scanFileForGallery(context, path)
@@ -47,6 +56,10 @@ class DownloadCompleteReceiver : BroadcastReceiver() {
                     val reasonIndex = cursor.getColumnIndex(DownloadManager.COLUMN_REASON)
                     val reason = if (reasonIndex != -1) cursor.getInt(reasonIndex) else -1
                     Toast.makeText(context, "Download failed (code $reason)", Toast.LENGTH_SHORT).show()
+
+                    DownloadRepository.findByDownloadManagerId(downloadId)?.let { item ->
+                        DownloadRepository.updateItem(item.id) { it.copy(status = DownloadStatus.FAILED) }
+                    }
                 }
 
                 else -> {

@@ -5,15 +5,23 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
-import android.provider.Settings
-import android.widget.TextView
+import android.view.View
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
+import androidx.recyclerview.widget.LinearLayoutManager
+import com.geto.jido.databinding.ActivityMainBinding
+import kotlinx.coroutines.launch
 
 class MainActivity : AppCompatActivity() {
+
+    private lateinit var binding: ActivityMainBinding
+    private val adapter = DownloadsAdapter()
 
     private val notificationPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
@@ -33,16 +41,25 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        binding = ActivityMainBinding.inflate(layoutInflater)
+        setContentView(binding.root)
 
-        // Minimal single-TextView UI — swap for a real layout/XML as needed.
-        val statusView = TextView(this).apply {
-            text = "Jido is running in the background.\nCopy a Pinterest, Instagram, or TikTok link to test it."
-            setPadding(48, 96, 48, 48)
-            textSize = 16f
-        }
-        setContentView(statusView)
-
+        setupDownloadsList()
         ensureNotificationPermissionThenStart()
+    }
+
+    private fun setupDownloadsList() {
+        binding.downloadsRecyclerView.layoutManager = LinearLayoutManager(this)
+        binding.downloadsRecyclerView.adapter = adapter
+
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                DownloadRepository.downloads.collect { items ->
+                    adapter.submitList(items)
+                    binding.emptyStateText.visibility = if (items.isEmpty()) View.VISIBLE else View.GONE
+                }
+            }
+        }
     }
 
     private fun ensureNotificationPermissionThenStart() {

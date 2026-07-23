@@ -20,25 +20,26 @@ import androidx.core.app.NotificationCompat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import okhttp3.OkHttpClient
+import okhttp3.Request
 import org.json.JSONObject
-import java.io.BufferedReader
-import java.io.InputStreamReader
-import java.io.OutputStreamWriter
-import java.net.HttpURLConnection
-import java.net.URL
 import java.net.URLEncoder
+import java.util.UUID
 
 /**
  * Persistent foreground service that watches the system clipboard for links
- * from supported platforms and kicks off an automated download when it
- * spots one.
+ * from supported platforms, resolves the direct media URL via RapidAPI, and
+ * hands the download to DownloadManager — while publishing live status into
+ * DownloadRepository so MainActivity can show it.
  */
 class ClipboardService : Service() {
 
     private val serviceJob = Job()
     private val serviceScope = CoroutineScope(Dispatchers.Default + serviceJob)
+    private val httpClient by lazy { OkHttpClient() }
 
     private lateinit var clipboardManager: ClipboardManager
     private var lastHandledClip: String? = null
@@ -90,81 +91,115 @@ class ClipboardService : Service() {
     // ---------------------------------------------------------------------
 
     private suspend fun handleLink(link: String, platform: String) {
-        val directUrl = withContext(Dispatchers.IO) { fetchDirectMediaUrl(link) }
+        val itemId = UUID.randomUUID().toString()
+        DownloadRepository.addItem(
+            DownloadItem(id = itemId, platform = platform, sourceLink = link, status = DownloadStatus.FETCHING)
+        )
+
+        val directUrl = withContext(Dispatchers.IO) { fetchDirectMediaUrl(link, platform) }
 
         if (directUrl.isNullOrBlank()) {
             Log.w(TAG, "Could not resolve a direct media URL for $link")
+            DownloadRepository.updateItem(itemId) { it.copy(status = DownloadStatus.FAILED) }
             updateNotification("Listening for copied media links…")
             return
         }
 
         withContext(Dispatchers.Main) {
-            enqueueDownload(directUrl, platform)
+            val (downloadManagerId, fileName) = enqueueDownload(directUrl, platform)
+            DownloadRepository.updateItem(itemId) {
+                it.copy(
+                    status = DownloadStatus.DOWNLOADING,
+                    fileName = fileName,
+                    downloadManagerId = downloadManagerId,
+                    progressPercent = 0
+                )
+            }
+            trackDownloadProgress(itemId, downloadManagerId)
             updateNotification("Listening for copied media links…")
         }
     }
 
     /**
-     * Calls the third-party RapidAPI downloader endpoint and pulls the
-     * direct asset URL out of the JSON response.
-     *
-     * PASTE YOUR RAPIDAPI CREDENTIALS BELOW:
-     *   - RAPIDAPI_KEY  -> your personal RapidAPI key
-     *   - RAPIDAPI_HOST -> the "X-RapidAPI-Host" value for whichever
-     *                       downloader API you subscribe to
-     *   - API_ENDPOINT  -> the full POST endpoint for that API
-     *
-     * Different RapidAPI downloader listings use different response shapes
-     * (some return {"download_url": "..."}, others return an array of
-     * qualities under {"medias": [...]}). Adjust parseDirectUrl() below to
-     * match the exact API you pick.
+     * Per-platform RapidAPI wiring. Add an entry here for each platform you
+     * subscribe to a downloader API for — Instagram is configured to match
+     * the endpoint you're using now. The RapidAPI key itself comes from
+     * BuildConfig (sourced from local.properties, which is git-ignored —
+     * see README.md for setup) rather than being hardcoded here.
      */
-    private fun fetchDirectMediaUrl(sourceLink: String): String? {
-        val RAPIDAPI_KEY = "c95aacbbb1mshd74ec9be8dfe58bp19e47djsncd7c691bb683"
-        val RAPIDAPI_HOST = "https://instagram120.p.rapidapi.com" // e.g. "pinterest-video-downloader6.p.rapidapi.com"
-        val API_ENDPOINT = "https://$RAPIDAPI_HOST/api/instagram/followings" // adjust path per the API you subscribe to
+    private data class ApiConfig(val host: String, val buildUrl: (String) -> String)
+
+    private val apiConfigs: Map<String, ApiConfig> = mapOf(
+        "Instagram" to ApiConfig(
+            host = "instagram120.p.rapidapi.com",
+            buildUrl = { link ->
+                "https://instagram120.p.rapidapi.com/api/instagram/get?url=" +
+                    URLEncoder.encode(link, "UTF-8")
+            }
+        )
+        // "Pinterest" to ApiConfig(host = "...", buildUrl = { ... }),
+        // "TikTok" to ApiConfig(host = "...", buildUrl = { ... }),
+    )
+
+    private fun fetchDirectMediaUrl(sourceLink: String, platform: String): String? {
+        val config = apiConfigs[platform] ?: run {
+            Log.w(TAG, "No RapidAPI endpoint configured for $platform yet")
+            return null
+        }
+
+        if (BuildConfig.RAPIDAPI_KEY.isBlank()) {
+            Log.e(TAG, "RAPIDAPI_KEY is empty — set it in local.properties (see README.md)")
+            return null
+        }
 
         return try {
-            val connection = (URL(API_ENDPOINT).openConnection() as HttpURLConnection).apply {
-                requestMethod = "POST"
-                setRequestProperty("Content-Type", "application/x-www-form-urlencoded")
-                setRequestProperty("X-RapidAPI-Key", RAPIDAPI_KEY)
-                setRequestProperty("X-RapidAPI-Host", RAPIDAPI_HOST)
-                doOutput = true
-                connectTimeout = 15_000
-                readTimeout = 15_000
-            }
+            val request = Request.Builder()
+                .url(config.buildUrl(sourceLink))
+                .get()
+                .addHeader("x-rapidapi-key", BuildConfig.RAPIDAPI_KEY)
+                .addHeader("x-rapidapi-host", config.host)
+                .addHeader("Content-Type", "application/json")
+                .build()
 
-            OutputStreamWriter(connection.outputStream).use { writer ->
-                writer.write("url=" + URLEncoder.encode(sourceLink, "UTF-8"))
+            httpClient.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) {
+                    Log.w(TAG, "API returned HTTP ${response.code}")
+                    return null
+                }
+                val body = response.body?.string().orEmpty()
+                parseDirectUrl(body)
             }
-
-            if (connection.responseCode != HttpURLConnection.HTTP_OK) {
-                Log.w(TAG, "API returned HTTP ${connection.responseCode}")
-                return null
-            }
-
-            val body = BufferedReader(InputStreamReader(connection.inputStream)).use { reader ->
-                reader.readText()
-            }
-
-            parseDirectUrl(body)
         } catch (e: Exception) {
             Log.e(TAG, "fetchDirectMediaUrl failed", e)
             null
         }
     }
 
-    /** Adjust this to match the exact JSON shape of the API you subscribe to. */
+    /**
+     * RapidAPI listings vary in their JSON field names. This tries the
+     * common ones; log the raw body (via Logcat, filter "ClipboardService")
+     * on your first real request and adjust the key names here to match
+     * what instagram120 actually returns.
+     */
     private fun parseDirectUrl(responseBody: String): String? = try {
         val json = JSONObject(responseBody)
-        json.optString("download_url").ifBlank { null }
+        json.optString("url").ifBlank { null }
+            ?: json.optString("download_url").ifBlank { null }
+            ?: json.optString("link").ifBlank { null }
+            ?: json.optJSONArray("medias")?.optJSONObject(0)?.optString("url")?.ifBlank { null }
+            ?: json.optJSONArray("items")?.optJSONObject(0)?.optString("url")?.ifBlank { null }
+            ?: json.optJSONObject("result")?.optString("url")?.ifBlank { null }
+            ?: run {
+                Log.w(TAG, "Unrecognized response shape, update parseDirectUrl(): $responseBody")
+                null
+            }
     } catch (e: Exception) {
         Log.e(TAG, "Failed to parse API response: $responseBody", e)
         null
     }
 
-    private fun enqueueDownload(directUrl: String, platform: String) {
+    /** Returns the DownloadManager request id and the chosen file name. */
+    private fun enqueueDownload(directUrl: String, platform: String): Pair<Long, String> {
         val extension = MimeTypeMap.getFileExtensionFromUrl(directUrl)?.takeIf { it.isNotBlank() } ?: "mp4"
         val fileName = "${platform}_${System.currentTimeMillis()}.$extension"
 
@@ -177,7 +212,55 @@ class ClipboardService : Service() {
         }
 
         val downloadManager = getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
-        downloadManager.enqueue(request)
+        val id = downloadManager.enqueue(request)
+        return id to fileName
+    }
+
+    /** Polls DownloadManager for progress until the download reaches a terminal state. */
+    private fun trackDownloadProgress(itemId: String, downloadManagerId: Long) {
+        serviceScope.launch(Dispatchers.IO) {
+            val downloadManager = getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+            var finished = false
+
+            while (!finished) {
+                val cursor = downloadManager.query(DownloadManager.Query().setFilterById(downloadManagerId))
+                if (cursor == null) {
+                    finished = true
+                    continue
+                }
+
+                cursor.use {
+                    if (!it.moveToFirst()) {
+                        finished = true
+                        return@use
+                    }
+
+                    val status = it.getInt(it.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS))
+                    val downloadedBytes =
+                        it.getLong(it.getColumnIndexOrThrow(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR))
+                    val totalBytes = it.getLong(it.getColumnIndexOrThrow(DownloadManager.COLUMN_TOTAL_SIZE_BYTES))
+                    val percent = if (totalBytes > 0) ((downloadedBytes * 100) / totalBytes).toInt() else -1
+
+                    when (status) {
+                        DownloadManager.STATUS_SUCCESSFUL -> {
+                            DownloadRepository.updateItem(itemId) {
+                                it.copy(status = DownloadStatus.SUCCESS, progressPercent = 100)
+                            }
+                            finished = true
+                        }
+                        DownloadManager.STATUS_FAILED -> {
+                            DownloadRepository.updateItem(itemId) { it.copy(status = DownloadStatus.FAILED) }
+                            finished = true
+                        }
+                        else -> {
+                            DownloadRepository.updateItem(itemId) { it.copy(progressPercent = percent) }
+                        }
+                    }
+                }
+
+                if (!finished) delay(750)
+            }
+        }
     }
 
     // ---------------------------------------------------------------------
