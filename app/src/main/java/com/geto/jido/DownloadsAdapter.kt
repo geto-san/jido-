@@ -26,8 +26,11 @@ class DownloadsAdapter : ListAdapter<DownloadItem, DownloadsAdapter.ViewHolder>(
 
             val statusLabel = when (item.status) {
                 DownloadStatus.FETCHING -> "Fetching media…"
-                DownloadStatus.DOWNLOADING ->
-                    if (item.progressPercent >= 0) "Downloading · ${item.progressPercent}%" else "Downloading…"
+                DownloadStatus.DOWNLOADING -> {
+                    val percentText = if (item.progressPercent >= 0) "${item.progressPercent}%" else "Downloading…"
+                    val speedText = formatSpeed(item.speedBytesPerSecond)
+                    if (speedText != null) "$percentText · $speedText" else percentText
+                }
                 DownloadStatus.SUCCESS -> "Done"
                 DownloadStatus.FAILED -> "Failed"
             }
@@ -70,6 +73,16 @@ class DownloadsAdapter : ListAdapter<DownloadItem, DownloadsAdapter.ViewHolder>(
                         progress = 0
                     }
                 }
+            }
+        }
+
+        /** Formats a byte-per-second rate as "12.4 MB/s" etc., or null if there's nothing to show yet. */
+        private fun formatSpeed(bytesPerSecond: Long): String? {
+            if (bytesPerSecond <= 0) return null
+            return when {
+                bytesPerSecond >= 1024 * 1024 -> String.format("%.1f MB/s", bytesPerSecond / (1024.0 * 1024.0))
+                bytesPerSecond >= 1024 -> String.format("%.0f KB/s", bytesPerSecond / 1024.0)
+                else -> "$bytesPerSecond B/s"
             }
         }
     }

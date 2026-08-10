@@ -1,6 +1,10 @@
 package com.geto.jido
 
 import android.util.Log
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -12,6 +16,13 @@ import java.net.URLEncoder
 /**
  * Handles resolving source links (YouTube, TikTok, etc.) to direct media URLs
  * using various RapidAPI endpoints and Cobalt with fallback logic.
+ *
+ * Performance note: [resolve] races every fallback endpoint for a platform
+ * concurrently and returns as soon as the first one succeeds, instead of
+ * trying them one at a time. A dead or slow endpoint used to block the whole
+ * pipeline for up to its full timeout before the next fallback even started;
+ * now a fast endpoint wins immediately regardless of its position in the
+ * list, and the stragglers are cancelled once we have a winner.
  */
 class MediaResolver(private val httpClient: OkHttpClient) {
 
@@ -223,51 +234,79 @@ class MediaResolver(private val httpClient: OkHttpClient) {
         parseResponse = { body -> parseStandardJson(body) }
     )
 
-    fun resolve(link: String, platform: String): String? {
+    /**
+     * Races every configured fallback for [platform] concurrently and returns the
+     * first successfully-resolved direct URL, cancelling the rest as soon as we
+     * have a winner. A slow or dead endpoint no longer blocks faster ones behind
+     * it in the fallback list — previously this loop tried them strictly in
+     * order, so a hung first choice could eat its full timeout before the next
+     * fallback even started.
+     */
+    suspend fun resolve(link: String, platform: String): String? = coroutineScope {
         val platformConfigs = configs[platform] ?: run {
             Log.w(TAG, "No configurations for platform: $platform")
-            return null
+            return@coroutineScope null
         }
 
-        for (config in platformConfigs) {
-            try {
-                val requestBuilder = config.buildRequest(link).newBuilder()
-                
-                if (config.host.contains("rapidapi")) {
-                    if (BuildConfig.RAPIDAPI_KEY.isBlank()) {
-                        Log.e(TAG, "Skipping ${config.host} — RAPIDAPI_KEY is missing")
-                        continue
-                    }
-                    requestBuilder
-                        .addHeader("x-rapidapi-key", BuildConfig.RAPIDAPI_KEY)
-                        .addHeader("x-rapidapi-host", config.host)
-                        .addHeader("Content-Type", "application/json")
-                }
-
-                val request = requestBuilder.build()
-
-                Log.d(TAG, "Trying $platform API: ${config.host}")
-                httpClient.newCall(request).execute().use { response ->
-                    if (response.isSuccessful) {
-                        val body = response.body?.string().orEmpty()
-                        val directUrl = config.parseResponse(body)
-                        if (!directUrl.isNullOrBlank()) {
-                            Log.i(TAG, "Successfully resolved $platform link via ${config.host}")
-                            return directUrl
-                        } else {
-                            Log.w(TAG, "API ${config.host} returned success but no URL found in body: $body")
-                        }
-                    } else {
-                        val errorBody = response.body?.string().orEmpty()
-                        Log.w(TAG, "API ${config.host} failed with code ${response.code}: $errorBody")
-                    }
-                }
-            } catch (e: Exception) {
-                Log.e(TAG, "Error resolving with ${config.host}: ${e.message}")
+        // Each fallback runs on its own coroutine and pushes its result (or null)
+        // onto a shared channel as soon as it finishes — buffered so a slow
+        // straggler never blocks the ones that already finished from reporting in.
+        val resultChannel = Channel<String?>(capacity = platformConfigs.size)
+        val jobs = platformConfigs.map { config ->
+            launch(Dispatchers.IO) {
+                val result = runCatching { tryConfig(config, link, platform) }.getOrNull()
+                resultChannel.trySend(result)
             }
         }
 
-        Log.e(TAG, "All API fallbacks failed for $platform link: $link")
+        var winner: String? = null
+        var received = 0
+        while (winner == null && received < platformConfigs.size) {
+            val result = resultChannel.receive()
+            received++
+            if (!result.isNullOrBlank()) winner = result
+        }
+
+        // Once we have a winner (or have exhausted every fallback), stop any
+        // still-in-flight requests instead of letting them run to completion.
+        jobs.forEach { it.cancel() }
+
+        if (winner == null) Log.e(TAG, "All API fallbacks failed for $platform link: $link")
+        winner
+    }
+
+    /** Runs one API fallback attempt; returns the parsed direct URL, or null on failure. */
+    private fun tryConfig(config: ApiConfig, link: String, platform: String): String? {
+        val requestBuilder = config.buildRequest(link).newBuilder()
+
+        if (config.host.contains("rapidapi")) {
+            if (BuildConfig.RAPIDAPI_KEY.isBlank()) {
+                Log.e(TAG, "Skipping ${config.host} — RAPIDAPI_KEY is missing")
+                return null
+            }
+            requestBuilder
+                .addHeader("x-rapidapi-key", BuildConfig.RAPIDAPI_KEY)
+                .addHeader("x-rapidapi-host", config.host)
+                .addHeader("Content-Type", "application/json")
+        }
+
+        val request = requestBuilder.build()
+        Log.d(TAG, "Trying $platform API: ${config.host}")
+
+        httpClient.newCall(request).execute().use { response ->
+            if (response.isSuccessful) {
+                val body = response.body?.string().orEmpty()
+                val directUrl = config.parseResponse(body)
+                if (!directUrl.isNullOrBlank()) {
+                    Log.i(TAG, "Successfully resolved $platform link via ${config.host}")
+                    return directUrl
+                }
+                Log.w(TAG, "API ${config.host} returned success but no URL found in body: $body")
+            } else {
+                val errorBody = response.body?.string().orEmpty()
+                Log.w(TAG, "API ${config.host} failed with code ${response.code}: $errorBody")
+            }
+        }
         return null
     }
 

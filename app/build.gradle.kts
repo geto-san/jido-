@@ -36,8 +36,17 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            // Shrinks, obfuscates, and optimizes the release build — smaller,
+            // faster-loading APK and less work for the JIT/AOT compiler at
+            // runtime. Debug builds stay unminified for fast iteration.
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+        }
+        debug {
+            // Unique application ID so a release build can stay installed
+            // side-by-side while iterating on debug builds.
+            applicationIdSuffix = ".debug"
         }
     }
 

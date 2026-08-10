@@ -23,21 +23,56 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import okhttp3.ConnectionPool
+import okhttp3.Dispatcher
 import okhttp3.OkHttpClient
 import java.util.UUID
+import java.util.concurrent.TimeUnit
 
 /**
  * Persistent foreground service that watches the system clipboard for links
  * from supported platforms, resolves the direct media URL via RapidAPI, and
- * hands the download to DownloadManager — while publishing live status into
- * DownloadRepository so MainActivity can show it.
+ * hands the download to a fast multi-connection downloader — while publishing
+ * live status into DownloadRepository so MainActivity can show it.
  */
 class ClipboardService : Service() {
 
     private val serviceJob = Job()
     private val serviceScope = CoroutineScope(Dispatchers.Default + serviceJob)
-    private val httpClient by lazy { OkHttpClient() }
-    private val mediaResolver by lazy { MediaResolver(httpClient) }
+
+    // Tuned for racing several fallback resolver APIs concurrently: fails fast
+    // into the next candidate rather than sitting on OkHttp's 10s defaults, and
+    // allows enough concurrent requests per host that racing isn't itself the
+    // bottleneck.
+    private val apiClient by lazy {
+        OkHttpClient.Builder()
+            .connectTimeout(5, TimeUnit.SECONDS)
+            .readTimeout(10, TimeUnit.SECONDS)
+            .writeTimeout(10, TimeUnit.SECONDS)
+            .callTimeout(12, TimeUnit.SECONDS)
+            .retryOnConnectionFailure(true)
+            .dispatcher(Dispatcher().apply { maxRequestsPerHost = 8; maxRequests = 32 })
+            .connectionPool(ConnectionPool(8, 60, TimeUnit.SECONDS))
+            .build()
+    }
+
+    // Separate client for the actual file transfer: longer timeouts appropriate
+    // for large media, and a bigger per-host limit + connection pool since
+    // SegmentedDownloader deliberately opens several concurrent range requests
+    // against the same CDN host.
+    private val downloadClient by lazy {
+        OkHttpClient.Builder()
+            .connectTimeout(8, TimeUnit.SECONDS)
+            .readTimeout(30, TimeUnit.SECONDS)
+            .writeTimeout(30, TimeUnit.SECONDS)
+            .retryOnConnectionFailure(true)
+            .dispatcher(Dispatcher().apply { maxRequestsPerHost = 8; maxRequests = 32 })
+            .connectionPool(ConnectionPool(8, 60, TimeUnit.SECONDS))
+            .build()
+    }
+
+    private val mediaResolver by lazy { MediaResolver(apiClient) }
+    private val segmentedDownloader by lazy { SegmentedDownloader(downloadClient) }
 
     private lateinit var clipboardManager: ClipboardManager
     private var lastHandledClip: String? = null
@@ -143,15 +178,20 @@ class ClipboardService : Service() {
             directUrl = link
         }
 
+        // resolve() already races every fallback endpoint concurrently (see
+        // MediaResolver), so a single attempt already gets the benefit of
+        // redundancy across providers — this outer retry only needs to cover
+        // a genuinely transient failure (e.g. a momentary network blip), not
+        // compensate for one dead endpoint blocking the others like before.
         var retryCount = 0
-        val maxRetries = 3
+        val maxRetries = 2
 
         while (directUrl.isNullOrBlank() && (retryCount < maxRetries)) {
             if (retryCount > 0) {
                 Log.d(TAG, "Retrying resolution for $link (attempt ${retryCount + 1})")
-                delay(2000L) // wait 2s before retry
+                delay(400L)
             }
-            directUrl = withContext(Dispatchers.IO) { mediaResolver.resolve(link, platform) }
+            directUrl = mediaResolver.resolve(link, platform)
             retryCount++
         }
 
@@ -162,23 +202,65 @@ class ClipboardService : Service() {
             return
         }
 
-        withContext(Dispatchers.Main) {
-            try {
-                val (downloadManagerId, fileName) = enqueueDownload(directUrl, platform)
-                DownloadRepository.updateItem(itemId) {
-                    it.copy(
-                        status = DownloadStatus.DOWNLOADING,
-                        fileName = fileName,
-                        downloadManagerId = downloadManagerId,
-                        progressPercent = 0
-                    )
+        DownloadRepository.updateItem(itemId) {
+            it.copy(status = DownloadStatus.DOWNLOADING, progressPercent = 0)
+        }
+
+        try {
+            downloadFast(itemId, directUrl, platform)
+        } catch (e: Exception) {
+            Log.w(TAG, "Fast segmented download failed for $directUrl, falling back to DownloadManager: ${e.message}")
+            withContext(Dispatchers.Main) {
+                try {
+                    val (downloadManagerId, fileName) = enqueueDownload(directUrl, platform)
+                    DownloadRepository.updateItem(itemId) {
+                        it.copy(
+                            status = DownloadStatus.DOWNLOADING,
+                            fileName = fileName,
+                            downloadManagerId = downloadManagerId,
+                            progressPercent = 0
+                        )
+                    }
+                    trackDownloadProgress(itemId, downloadManagerId)
+                } catch (fallbackError: Exception) {
+                    Log.e(TAG, "DownloadManager fallback also failed for $directUrl", fallbackError)
+                    DownloadRepository.updateItem(itemId) { it.copy(status = DownloadStatus.FAILED) }
                 }
-                trackDownloadProgress(itemId, downloadManagerId)
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to enqueue download for $directUrl", e)
-                DownloadRepository.updateItem(itemId) { it.copy(status = DownloadStatus.FAILED) }
             }
-            updateNotification("Listening for copied media links…")
+        }
+        updateNotification("Listening for copied media links…")
+    }
+
+    /**
+     * Fast path: pulls the file with [SegmentedDownloader] (multiple concurrent
+     * byte-range connections when the server supports it) instead of handing
+     * off to Android's single-connection DownloadManager. Throws on any
+     * failure so the caller can fall back to DownloadManager.
+     */
+    private suspend fun downloadFast(itemId: String, directUrl: String, platform: String) {
+        val result = segmentedDownloader.download(
+            context = this,
+            url = directUrl,
+            platform = platform,
+        ) { progress ->
+            val percent = if (progress.totalBytes > 0) {
+                ((progress.downloadedBytes * 100) / progress.totalBytes).toInt().coerceIn(0, 100)
+            } else -1
+            DownloadRepository.updateItem(itemId) {
+                it.copy(
+                    progressPercent = percent,
+                    speedBytesPerSecond = progress.bytesPerSecond,
+                    totalBytes = progress.totalBytes,
+                )
+            }
+        }
+        DownloadRepository.updateItem(itemId) {
+            it.copy(
+                status = DownloadStatus.SUCCESS,
+                fileName = result.displayName,
+                progressPercent = 100,
+                speedBytesPerSecond = 0,
+            )
         }
     }
 

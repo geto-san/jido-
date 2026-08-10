@@ -22,4 +22,6 @@ data class DownloadItem(
     val status: DownloadStatus = DownloadStatus.FETCHING,
     val progressPercent: Int = -1, // -1 = unknown/indeterminate
     val downloadManagerId: Long? = null,
+    val speedBytesPerSecond: Long = 0,
+    val totalBytes: Long = -1, // -1 = unknown
 )
