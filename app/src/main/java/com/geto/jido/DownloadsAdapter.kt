@@ -1,7 +1,9 @@
 package com.geto.jido
 
+import android.content.res.ColorStateList
 import android.view.LayoutInflater
 import android.view.ViewGroup
+import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
@@ -31,7 +33,22 @@ class DownloadsAdapter : ListAdapter<DownloadItem, DownloadsAdapter.ViewHolder>(
             }
             binding.statusText.text = "${item.platform} · $statusLabel"
 
+            val context = binding.root.context
+            val (iconRes, colorRes) = when (item.status) {
+                DownloadStatus.FETCHING -> R.drawable.ic_status_fetching to R.color.status_fetching
+                DownloadStatus.DOWNLOADING -> R.drawable.ic_status_downloading to R.color.status_downloading
+                DownloadStatus.SUCCESS -> R.drawable.ic_status_success to R.color.status_success
+                DownloadStatus.FAILED -> R.drawable.ic_status_failed to R.color.status_failed
+            }
+            // Status color drives the icon and progress bar only — statusText stays neutral
+            // (text_secondary) so the list doesn't turn into a wall of mixed colored text;
+            // the icon carries the at-a-glance signal instead.
+            val statusColor = ContextCompat.getColor(context, colorRes)
+            binding.statusIcon.setImageResource(iconRes)
+            binding.statusIcon.imageTintList = ColorStateList.valueOf(statusColor)
+
             binding.downloadProgressBar.apply {
+                progressTintList = ColorStateList.valueOf(statusColor)
                 when (item.status) {
                     DownloadStatus.FETCHING -> {
                         isIndeterminate = true

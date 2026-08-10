@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Brand -->
+    <color name="color_primary">#5E35B1</color>
+    <color name="color_primary_dark">#4527A0</color>
+    <color name="color_on_primary">#FFFFFF</color>
+
+    <!-- Surfaces -->
+    <color name="background_primary">#FAFAFA</color>
+    <color name="surface_card">#FFFFFF</color>
+
+    <!-- Text -->
+    <color name="text_primary">#1A1A1A</color>
+    <color name="text_secondary">#666666</color>
+    <color name="text_tertiary">#888888</color>
+
+    <!-- Accessibility / warning callout -->
+    <color name="warning_background">#FFE0B2</color>
+    <color name="warning_text">#E65100</color>
+    <color name="warning_icon">#E65100</color>
+
+    <!-- Download status -->
+    <color name="status_fetching">#666666</color>
+    <color name="status_downloading">#1565C0</color>
+    <color name="status_success">#2E7D32</color>
+    <color name="status_failed">#C62828</color>
+
+    <color name="divider">#E0E0E0</color>
+</resources>

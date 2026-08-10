@@ -18,8 +18,10 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
+import androidx.core.widget.doOnTextChanged
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.geto.jido.databinding.ActivityMainBinding
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import kotlinx.coroutines.launch
 
 class MainActivity : AppCompatActivity() {
@@ -53,6 +55,7 @@ class MainActivity : AppCompatActivity() {
         ensureNotificationPermissionThenStart()
         checkAccessibilityService()
         handleIntent(intent)
+        showFirstRunExplainerIfNeeded()
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -77,6 +80,30 @@ class MainActivity : AppCompatActivity() {
         binding.accessibilityCard.visibility = if (isEnabled) View.GONE else View.VISIBLE
     }
 
+    /**
+     * One-time explainer shown the first time the app is launched, so users understand
+     * *why* Jido watches the clipboard before they run into the accessibility-settings
+     * prompt or start pasting links. Shown once via a SharedPreferences flag.
+     */
+    private fun showFirstRunExplainerIfNeeded() {
+        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        if (prefs.getBoolean(KEY_FIRST_RUN_SHOWN, false)) return
+
+        MaterialAlertDialogBuilder(this)
+            .setTitle("Welcome to Jido")
+            .setMessage(
+                "Jido watches your clipboard for Pinterest, Instagram, and TikTok links " +
+                    "and downloads the media automatically — nothing else on your clipboard " +
+                    "is read or stored. You can also paste a link manually using the field " +
+                    "at the top any time."
+            )
+            .setCancelable(false)
+            .setPositiveButton("Got it") { dialog, _ -> dialog.dismiss() }
+            .show()
+
+        prefs.edit().putBoolean(KEY_FIRST_RUN_SHOWN, true).apply()
+    }
+
     private fun setupManualInput() {
         binding.enableAccessibilityButton.setOnClickListener {
             startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
@@ -84,19 +111,31 @@ class MainActivity : AppCompatActivity() {
 
         binding.downloadButton.setOnClickListener {
             val link = binding.linkInput.text.toString().trim()
-            if (link.isNotBlank()) {
-                startClipboardServiceWithLink(link)
-                binding.linkInput.text?.clear()
-                hideKeyboard()
-            } else {
-                Toast.makeText(this, "Please paste a link first", Toast.LENGTH_SHORT).show()
+            when {
+                link.isBlank() -> {
+                    binding.linkInputLayout.error = "Please paste a link first"
+                }
+                SupportedLinks.detect(link) == null -> {
+                    binding.linkInputLayout.error = "Unsupported link — try Pinterest, Instagram, or TikTok"
+                }
+                else -> {
+                    binding.linkInputLayout.error = null
+                    startClipboardServiceWithLink(link)
+                    binding.linkInput.text?.clear()
+                    hideKeyboard()
+                }
             }
+        }
+
+        binding.linkInput.doOnTextChanged { _, _, _, _ ->
+            binding.linkInputLayout.error = null
         }
 
         binding.pasteButton.setOnClickListener {
             val clipboard = getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager
             val text = clipboard.primaryClip?.getItemAt(0)?.text?.toString()
             if (!text.isNullOrBlank()) {
+                binding.linkInputLayout.error = null
                 binding.linkInput.setText(text)
             } else {
                 Toast.makeText(this, "Clipboard is empty", Toast.LENGTH_SHORT).show()
@@ -144,7 +183,7 @@ class MainActivity : AppCompatActivity() {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 DownloadRepository.downloads.collect { items ->
                     adapter.submitList(items)
-                    binding.emptyStateText.visibility = if (items.isEmpty()) View.VISIBLE else View.GONE
+                    binding.emptyStateContainer.visibility = if (items.isEmpty()) View.VISIBLE else View.GONE
                 }
             }
         }
@@ -181,5 +220,10 @@ class MainActivity : AppCompatActivity() {
     private fun startClipboardService() {
         val serviceIntent = Intent(this, ClipboardService::class.java)
         startForegroundService(serviceIntent)
+    }
+
+    private companion object {
+        const val PREFS_NAME = "jido_prefs"
+        const val KEY_FIRST_RUN_SHOWN = "first_run_explainer_shown"
     }
 }
