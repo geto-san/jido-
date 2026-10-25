@@ -1,0 +1,85 @@
+server:
+  port: ${SERVER_PORT:8080}
+  shutdown: graceful
+  forward-headers-strategy: framework
+
+spring:
+  application:
+    name: jido-server
+
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:jido}
+    username: ${DB_USER:jido}
+    password: ${DB_PASSWORD:}
+    hikari:
+      maximum-pool-size: 10
+      connection-timeout: 10000
+
+  jpa:
+    open-in-view: false
+    hibernate:
+      # Flyway owns the schema; Hibernate only validates that entities match it.
+      ddl-auto: validate
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+
+  threads:
+    virtual:
+      enabled: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: never
+
+jido:
+  security:
+    jwt:
+      # No default. A missing secret fails startup via JwtSecretValidator
+      # rather than silently signing tokens with something guessable.
+      secret: ${JWT_SECRET:}
+      issuer: ${JWT_ISSUER:jido-server}
+      access-token-ttl: ${JWT_ACCESS_TTL:PT24H}
+      # P30D, not PT30D: days are a date component, and Duration.parse rejects
+      # a day count after the "T" separator.
+      refresh-token-ttl: ${JWT_REFRESH_TTL:P30D}
+
+  storage:
+    # local | s3. "s3" accepts any S3-compatible endpoint (AWS, R2, minio).
+    type: ${STORAGE_TYPE:local}
+    local:
+      root: ${STORAGE_LOCAL_ROOT:./storage}
+    s3:
+      endpoint: ${S3_ENDPOINT:}
+      region: ${S3_REGION:}
+      bucket: ${S3_BUCKET:}
+      access-key: ${S3_ACCESS_KEY:}
+      secret-key: ${S3_SECRET_KEY:}
+      # R2 and minio require path-style; real AWS does not.
+      path-style-access: ${S3_PATH_STYLE:false}
+
+  downloads:
+    # 1 by default: each active job costs a yt-dlp subprocess plus a transfer,
+    # so concurrency is the first thing to OOM, not the last.
+    concurrency: ${DOWNLOAD_CONCURRENCY:1}
+    poll-interval: ${DOWNLOAD_POLL_INTERVAL:PT1S}
+    request-timeout: ${DOWNLOAD_REQUEST_TIMEOUT:PT30M}
+    connect-timeout: ${DOWNLOAD_CONNECT_TIMEOUT:PT10S}
+    claim-batch-size: 10
+
+logging:
+  level:
+    com.geto.jido.server: INFO

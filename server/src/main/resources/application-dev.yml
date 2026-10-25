@@ -1,0 +1,12 @@
+# Local development overrides. The JWT secret here is a throwaway for
+# localhost only — never set this in a deployed environment.
+jido:
+  security:
+    jwt:
+      secret: dev-only-insecure-secret-do-not-ship-0123456789abcdef
+      issuer: jido-server-dev
+
+logging:
+  level:
+    com.geto.jido.server: DEBUG
+    org.springframework.security: DEBUG

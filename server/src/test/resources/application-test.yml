@@ -1,0 +1,11 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/jido_test
+    username: jido
+    password: ""
+
+jido:
+  security:
+    jwt:
+      secret: test-only-insecure-secret-do-not-ship-0123456789abcd
+      issuer: jido-server-test
