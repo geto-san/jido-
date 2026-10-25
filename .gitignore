@@ -1,3 +1,4 @@
+# Android / Gradle
 build/
 .gradle/
 .idea/
@@ -5,7 +6,40 @@ local.properties
 *.apk
 *.aab
 *.iml
+*.jks
+*.keystore
+keystore.properties
 .DS_Store
+.directory
 /captures
 .externalNativeBuild
 .cxx
+
+# Local signing and environment secrets
+.env
+.env.*
+secrets/
+*.pem
+*.p12
+
+# Python artifacts
+__pycache__/
+.pytest_cache/
+.mypy_cache/
+*.py[cod]
+**/__pycache__/
+**/.pytest_cache/
+**/.mypy_cache/
+
+# Local server/runtime state
+server/.venv/
+server/python/.venv/
+server/storage/
+server/.env
+server/python/__pycache__/
+server/python/.pytest_cache/
+
+# Generic generated folders
+**/build/
+**/.gradle/
+**/.idea/

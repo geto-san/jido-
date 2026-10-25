@@ -1,0 +1,16 @@
+# Build output and Gradle state
+build/
+.gradle/
+
+# Local runtime and media state
+storage/
+.env
+.venv/
+__pycache__/
+.pytest_cache/
+*.py[cod]
+
+# Local dev secrets and generated files
+*.jks
+*.keystore
+keystore.properties
