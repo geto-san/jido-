@@ -32,6 +32,24 @@ android {
             "RAPIDAPI_KEY",
             "\"${localProperties.getProperty("RAPIDAPI_KEY", "")}\""
         )
+
+        // Base URL of the Java backend in local.properties, overridable per
+        // build type. Empty means "not configured", and MediaResolver then
+        // skips the backend instead of calling a bad host.
+        buildConfigField(
+            "String",
+            "JIDO_BACKEND_URL",
+            "\"${localProperties.getProperty("JIDO_BACKEND_URL", "")}\""
+        )
+
+        // Bearer token for the backend's /api/v1/resolve. The endpoint is
+        // authenticated, so without this the backend is skipped rather than
+        // attempted and rejected with a 401 on every clipboard resolve.
+        buildConfigField(
+            "String",
+            "JIDO_AUTH_TOKEN",
+            "\"${localProperties.getProperty("JIDO_AUTH_TOKEN", "")}\""
+        )
     }
 
     buildTypes {

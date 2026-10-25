@@ -28,8 +28,59 @@ class MediaResolver(private val httpClient: OkHttpClient) {
 
     companion object {
         private const val TAG = "MediaResolver"
-        // TODO: Update this after deploying the 'server' directory to Render
+        // Legacy Python service. Kept as the last-resort fallback because it
+        // still answers unauthenticated GET /resolve?url=, so it keeps working
+        // for users who have no backend token configured.
         private const val RENDER_SERVER_URL = "https://jido-povx.onrender.com/resolve?url="
+
+        /**
+         * Base URL of the Java backend, from local.properties. Empty when unset.
+         * Read once here rather than per-call so a missing value is a single
+         * cheap check on the hot path instead of a property read per resolve.
+         */
+        private val backendUrl: String = BuildConfig.JIDO_BACKEND_URL.trimEnd('/')
+        private val backendToken: String = BuildConfig.JIDO_AUTH_TOKEN
+    }
+
+    /** True when a backend URL and token are both configured. */
+    private val backendAvailable: Boolean
+        get() = backendUrl.isNotBlank() && backendToken.isNotBlank()
+
+    /**
+     * Calls the Java backend's POST /api/v1/resolve, which returns
+     * `{"url": "...", "platform": ..., "title": ...}`.
+     *
+     * The old Render fallback is a GET that echoes a bare URL, so this is a
+     * separate request builder rather than another entry in [configs]: the
+     * method, path, body shape, and auth all differ.
+     */
+    private fun jidoBackend(): ApiConfig? {
+        if (!backendAvailable) {
+            Log.d(TAG, "Jido backend not configured (url or token blank), skipping")
+            return null
+        }
+        return ApiConfig(
+            host = "jido-backend",
+            buildRequest = { link ->
+                val body = JSONObject().put("url", link).toString()
+                    .toRequestBody("application/json".toMediaType())
+                Request.Builder()
+                    .url("$backendUrl/api/v1/resolve")
+                    .post(body)
+                    .header("Authorization", "Bearer $backendToken")
+                    .header("Accept", "application/json")
+                    .build()
+            },
+            parseResponse = { body ->
+                JSONObject(body).optString("url").takeIf { it.isValidUrl() }
+            }
+        )
+    }
+
+    /** Backend first (our own infra), then the existing third-party fallbacks. */
+    private fun withBackend(vararg fallbacks: ApiConfig): List<ApiConfig> {
+        val backend = jidoBackend()
+        return if (backend == null) fallbacks.toList() else listOf(backend) + fallbacks
     }
 
     private data class ApiConfig(
@@ -39,7 +90,7 @@ class MediaResolver(private val httpClient: OkHttpClient) {
     )
 
     private val configs: Map<String, List<ApiConfig>> = mapOf(
-        "Instagram" to listOf(
+        "Instagram" to withBackend(
             ApiConfig(
                 host = "api.cobalt.tools",
                 buildRequest = { link ->
@@ -70,7 +121,7 @@ class MediaResolver(private val httpClient: OkHttpClient) {
             ),
             renderFallback()
         ),
-        "YouTube" to listOf(
+        "YouTube" to withBackend(
             ApiConfig(
                 host = "youtube-v2.p.rapidapi.com",
                 buildRequest = { link ->
@@ -156,7 +207,7 @@ class MediaResolver(private val httpClient: OkHttpClient) {
             ),
             renderFallback()
         ),
-        "TikTok" to listOf(
+        "TikTok" to withBackend(
             ApiConfig(
                 host = "www.tikwm.com",
                 buildRequest = { link ->
@@ -189,7 +240,7 @@ class MediaResolver(private val httpClient: OkHttpClient) {
             ),
             renderFallback()
         ),
-        "Pinterest" to listOf(
+        "Pinterest" to withBackend(
             ApiConfig(
                 host = "api.cobalt.tools",
                 buildRequest = { link ->
@@ -206,7 +257,7 @@ class MediaResolver(private val httpClient: OkHttpClient) {
             ),
             renderFallback()
         ),
-        "Spotify" to listOf(
+        "Spotify" to withBackend(
             ApiConfig(
                 host = "api.cobalt.tools",
                 buildRequest = { link ->
